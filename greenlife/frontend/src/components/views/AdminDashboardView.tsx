@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { 
   ShieldCheck, 
@@ -10,6 +10,7 @@ import {
   Check, 
   X, 
   AlertCircle, 
+  Save,
   Cpu, 
   Trash2,
   Search,
@@ -26,30 +27,37 @@ import {
   TrendingUp,
   Eye,
   Coins,
-  Leaf
+  Leaf,
+  ChevronLeft,
+  BookOpen,
+  UploadCloud,
+  Tag
 } from "lucide-react";
 import { useAppContext } from "../../context/AppContext";
 import { INITIAL_ORDERS } from "../../data";
+import { ArticleService } from "../../services/articleService";
+import { BlogPost, Product } from "../../types";
 
 export const AdminDashboardView: React.FC = () => {
   const { 
     stores, 
     products, 
-    appointments, 
     updateStoreInfo,
     addNewProduct,
     setCurrentPage,
     adminActiveTab,
-    setAdminActiveTab
+    setAdminActiveTab,
+    blogPosts,
+    refreshArticles,
+    currentUser
   } = useAppContext();
 
   // Reference context state directly
   const activeTab = adminActiveTab;
   const setActiveTab = setAdminActiveTab;
 
-  // Local state for orders & appointments to simulate real-time admin workflow updates
+  // Local state for orders to simulate real-time admin workflow updates
   const [localOrders, setLocalOrders] = useState(INITIAL_ORDERS);
-  const [localAppointments, setLocalAppointments] = useState(appointments);
 
   // Search & Filter States
   const [storeTab, setStoreTab] = useState<"pending" | "active">("pending");
@@ -66,8 +74,7 @@ export const AdminDashboardView: React.FC = () => {
   const [orderSearch, setOrderSearch] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] = useState("");
 
-  const [bookingSearch, setBookingSearch] = useState("");
-  const [bookingStatusFilter, setBookingStatusFilter] = useState("");
+
 
   // Modals & Details states
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
@@ -159,13 +166,7 @@ export const AdminDashboardView: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Booking Filtering logic
-  const filteredAppointments = localAppointments.filter((a) => {
-    const matchesSearch = a.expertName.toLowerCase().includes(bookingSearch.toLowerCase()) || 
-                          a.title.toLowerCase().includes(bookingSearch.toLowerCase());
-    const matchesStatus = bookingStatusFilter === "" || a.status === bookingStatusFilter;
-    return matchesSearch && matchesStatus;
-  });
+
 
   const getOrderStatusLabel = (status: string) => {
     switch (status) {
@@ -217,10 +218,7 @@ export const AdminDashboardView: React.FC = () => {
     setSelectedOrder(prev => prev && prev.id === orderId ? { ...prev, status: newStatus } : prev);
   };
 
-  const handleUpdateBookingStatus = (bookingId: string, newStatus: "pending" | "confirmed" | "completed") => {
-    setLocalAppointments(prev => prev.map(a => a.id === bookingId ? { ...a, status: newStatus } : a));
-    alert(`Đã cập nhật trạng thái lịch tư vấn thành: ${newStatus === "confirmed" ? "Đã xác nhận" : "Đã hoàn thành"}`);
-  };
+
 
   const handleAddProductSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1031,132 +1029,16 @@ export const AdminDashboardView: React.FC = () => {
         </div>
       )}
 
-      {/* 6. BOOKING MANAGEMENT TAB */}
-      {activeTab === "bookings" && (
-        <div className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-850 p-6 rounded-3xl space-y-5 shadow-xs animate-slide-down">
-          
-          {/* Header row */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-display font-semibold text-stone-900 dark:text-stone-100 text-sm tracking-wider uppercase">
-                Lịch Tư Vấn Khoa Học Nông Nghiệp
-              </h3>
-              <p className="text-[10px] text-stone-400">Giám sát các ca tư vấn chuyên sâu của PGS TS Sinh học với cư dân đô thị, cập nhật trạng thái lịch hẹn.</p>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-stone-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm chuyên gia, chủ đề tư vấn..."
-                  value={bookingSearch}
-                  onChange={(e) => setBookingSearch(e.target.value)}
-                  className="w-full sm:w-64 pl-9 pr-4 py-2 text-xs rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-250 dark:border-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-emerald-500 font-mono"
-                />
-              </div>
-              <div className="relative">
-                <Filter className="absolute left-3 top-3 h-4 w-4 text-stone-400" />
-                <select
-                  value={bookingStatusFilter}
-                  onChange={(e) => setBookingStatusFilter(e.target.value)}
-                  className="w-full sm:w-48 pl-9 pr-4 py-2 text-xs rounded-xl bg-stone-100 dark:bg-stone-900 border border-stone-250 dark:border-stone-800 text-stone-800 dark:text-stone-100 focus:outline-none focus:border-emerald-500 font-mono cursor-pointer"
-                >
-                  <option value="">Mọi trạng thái</option>
-                  <option value="pending">Chờ xác nhận (pending)</option>
-                  <option value="confirmed">Đã duyệt (confirmed)</option>
-                  <option value="completed">Đã hoàn tất (completed)</option>
-                </select>
-              </div>
-            </div>
-          </div>
 
-          <div className="overflow-x-auto text-xs rounded-xl border border-stone-200 dark:border-stone-850">
-            <table className="w-full text-left text-stone-650 dark:text-stone-300 border-collapse">
-              <thead className="bg-stone-100 dark:bg-stone-900 border-b border-stone-200 dark:border-stone-800 text-stone-500 uppercase font-mono text-[9px]">
-                <tr>
-                  <th className="p-4.5">Chuyên Gia Cố Vấn</th>
-                  <th className="p-4.5">Chuyên Đề Tư Vấn</th>
-                  <th className="p-4.5 font-mono">Thời Gian Slot</th>
-                  <th className="p-4.5 text-center font-mono">Chi phí tư vấn</th>
-                  <th className="p-4.5 text-center">Hình Thức</th>
-                  <th className="p-4.5 text-center">Trạng Thái</th>
-                  <th className="p-4.5 text-right">Điều Hành</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-stone-200 dark:divide-stone-850">
-                {filteredAppointments.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="p-8 text-center text-stone-400">Không tìm thấy ca tư vấn nào phù hợp.</td>
-                  </tr>
-                ) : (
-                  filteredAppointments.map((a) => (
-                    <tr key={a.id} className="hover:bg-stone-100/50 dark:hover:bg-stone-900/40 transition-colors">
-                      <td className="p-4.5">
-                        <div className="flex items-center gap-2.5">
-                          <img src={a.expertAvatar || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100"} alt={a.expertName} className="w-7.5 h-7.5 object-cover rounded-full border border-stone-200 dark:border-stone-800" />
-                          <span className="font-semibold text-stone-900 dark:text-stone-100">{a.expertName}</span>
-                        </div>
-                      </td>
-                      <td className="p-4.5">
-                        <div className="max-w-xs space-y-0.5">
-                          <span className="block truncate text-stone-750 dark:text-stone-200 font-semibold">{a.title}</span>
-                          {a.userNotes && <span className="block text-[10px] text-stone-400 truncate">Ghi chú: {a.userNotes}</span>}
-                        </div>
-                      </td>
-                      <td className="p-4.5 font-mono text-stone-500">
-                        <div className="space-y-0.5">
-                          <span className="block">{a.date}</span>
-                          <span className="block font-bold text-stone-700 dark:text-stone-300">{a.time} ({a.durationMinutes || 60}m)</span>
-                        </div>
-                      </td>
-                      <td className="p-4.5 text-center font-mono font-bold text-emerald-600 dark:text-emerald-450">
-                        {a.price.toLocaleString("vi-VN")}₫
-                      </td>
-                      <td className="p-4.5 text-center font-mono uppercase text-[9px]">
-                        <span className={`px-2 py-0.5 rounded font-bold ${a.type === "online" ? "bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400" : "bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400"}`}>
-                          {a.type}
-                        </span>
-                      </td>
-                      <td className="p-4.5 text-center font-mono">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-bold uppercase ${
-                          a.status === "completed" 
-                            ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border border-emerald-250"
-                            : a.status === "confirmed"
-                              ? "bg-cyan-100 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-400 border border-cyan-250"
-                              : "bg-amber-100 dark:bg-amber-955/40 text-amber-700 dark:text-amber-400 border border-amber-250"
-                        }`}>
-                          {a.status === "completed" ? "Đã Xong" : a.status === "confirmed" ? "Đã Duyệt" : "Chờ duyệt"}
-                        </span>
-                      </td>
-                      <td className="p-4.5 text-right">
-                        {a.status === "pending" && (
-                          <button 
-                            onClick={() => handleUpdateBookingStatus(a.id, "confirmed")}
-                            className="py-1 px-2.5 bg-emerald-500 hover:bg-emerald-400 text-black font-semibold rounded-lg text-[9px] cursor-pointer transition-all uppercase border border-emerald-400"
-                          >
-                            Xác Nhận
-                          </button>
-                        )}
-                        {a.status === "confirmed" && (
-                          <button 
-                            onClick={() => handleUpdateBookingStatus(a.id, "completed")}
-                            className="py-1 px-2.5 bg-stone-200 dark:bg-stone-900 hover:bg-stone-300 dark:hover:bg-stone-800 text-stone-750 dark:text-stone-300 font-semibold rounded-lg text-[9px] cursor-pointer transition-all uppercase border border-stone-250 dark:border-stone-800"
-                          >
-                            Hoàn Thành
-                          </button>
-                        )}
-                        {a.status === "completed" && (
-                          <span className="text-[10px] text-stone-400 italic">Lịch sử</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+
+      {/* 7. BLOG MANAGEMENT TAB */}
+      {activeTab === "blogs" && (
+        <BlogManagerSection 
+          products={products}
+          blogPosts={blogPosts}
+          currentUser={currentUser}
+          refreshArticles={refreshArticles}
+        />
       )}
 
       {/* ==================== MODALS & POPUPS SYSTEM ==================== */}
@@ -1466,6 +1348,563 @@ export const AdminDashboardView: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+    </div>
+  );
+};
+
+interface BlogManagerSectionProps {
+  products: Product[];
+  blogPosts: BlogPost[];
+  currentUser: any;
+  refreshArticles: () => Promise<void>;
+}
+
+const BlogManagerSection: React.FC<BlogManagerSectionProps> = ({
+  products,
+  blogPosts,
+  currentUser,
+  refreshArticles
+}) => {
+  const [isCreating, setIsCreating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Form States
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [content, setContent] = useState("");
+  const [category, setCategory] = useState<"urban-farming" | "eco-living" | "plant-care">("plant-care");
+  const [image, setImage] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState("");
+  
+  // Status states
+  const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+
+  // Filter all posts for admin view
+  const storeArticles = useMemo(() => {
+    return blogPosts.filter((post) => {
+      const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            post.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            post.author.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesSearch;
+    });
+  }, [blogPosts, searchTerm]);
+
+  // Handle drag and drop image upload
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      convertToBase64(file);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      convertToBase64(file);
+    }
+  };
+
+  const convertToBase64 = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg("Vui lòng tải lên một file ảnh hợp lệ.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg("Dung lượng ảnh phải nhỏ hơn 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = () => {
+      setImage(reader.result as string);
+      setErrorMsg("");
+    };
+  };
+
+  // Helper formatting for Rich Text Simulator
+  const insertText = (before: string, after: string = "") => {
+    const textarea = document.getElementById("admin-blog-content-textarea") as HTMLTextAreaElement;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selected = text.substring(start, end);
+    const replacement = before + selected + after;
+    setContent(text.substring(0, start) + replacement + text.substring(end));
+    // Refocus
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
+    }, 0);
+  };
+
+  const handleToggleProductTag = (productId: string) => {
+    setSelectedProductIds(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  // Admin has access to all products on the platform
+  const filteredTaggableProducts = useMemo(() => {
+    return products.filter(p => p.name.toLowerCase().includes(tagSearch.toLowerCase()));
+  }, [products, tagSearch]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !content.trim()) {
+      setErrorMsg("Tiêu đề và Nội dung bài viết không được để trống.");
+      return;
+    }
+    setSubmitting(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      const res = await ArticleService.createArticle({
+        title,
+        category,
+        summary: summary || (content.substring(0, 120) + "..."),
+        content,
+        image,
+        authorId: currentUser?.id || "user-3", // default admin user id
+        taggedProductIds: selectedProductIds
+      });
+
+      if (res.success) {
+        setSuccessMsg(res.message);
+        await refreshArticles();
+        // Reset states
+        setTitle("");
+        setSummary("");
+        setContent("");
+        setImage("");
+        setSelectedProductIds([]);
+        setCategory("plant-care");
+        setTimeout(() => {
+          setSuccessMsg("");
+          setIsCreating(false);
+        }, 2000);
+      } else {
+        setErrorMsg("Đăng bài viết thất bại. Vui lòng kiểm tra lại.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Lỗi kết nối khi gửi bài viết.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-850 p-6 sm:p-8 rounded-3xl space-y-6 shadow-xs animate-slide-down">
+      
+      {/* Tab Header with Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-850 pb-5">
+        <div>
+          <h2 className="font-display font-semibold text-stone-900 dark:text-stone-100 text-lg uppercase tracking-wide flex items-center gap-2">
+            <FileText className="h-5 w-5 text-emerald-500" />
+            {isCreating ? "Viết Cẩm Nang Xanh Mới (Admin)" : "Quản Lý Cẩm Nang Xanh Hệ Thống"}
+          </h2>
+          <p className="text-xs text-stone-400 mt-1">
+            {isCreating ? "Tạo hướng dẫn, phác đồ điều trị cây bệnh hoặc truyền thông lối sống bảo vệ hành tinh xanh" : "Quản lý và biên tập toàn bộ các bài viết chuyên mục của hệ thống"}
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            setIsCreating(!isCreating);
+            setErrorMsg("");
+            setSuccessMsg("");
+          }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all tracking-wider flex items-center gap-1.5 cursor-pointer btn-animated ${
+            isCreating
+              ? "bg-stone-800 text-stone-300 border border-stone-700/60 hover:bg-stone-750"
+              : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20"
+          }`}
+        >
+          {isCreating ? (
+            <>
+              <ChevronLeft className="h-4 w-4" /> Quay Lại
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4" /> Viết Bài Mới
+            </>
+          )}
+        </button>
+      </div>
+
+      {successMsg && (
+        <div className="p-4 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 rounded-2xl text-xs flex items-center gap-2 animate-badge-pop">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-4 bg-rose-950/40 border border-rose-500/30 text-rose-455 rounded-2xl text-xs flex items-center gap-2 animate-badge-pop">
+          <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* VIEW A: LIST ARTICLES */}
+      {!isCreating && (
+        <div className="space-y-6">
+          
+          {/* Search bar & Filter */}
+          <div className="flex items-center gap-3 bg-stone-100 dark:bg-stone-900/50 p-2 rounded-2xl border border-stone-200 dark:border-stone-850 max-w-md">
+            <Search className="h-4 w-4 text-stone-400 shrink-0 ml-2" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm tiêu đề, tác giả..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-transparent border-none text-xs w-full text-stone-800 dark:text-stone-100 focus:outline-none placeholder-stone-500"
+            />
+          </div>
+
+          {storeArticles.length === 0 ? (
+            <div className="py-16 text-center bg-stone-100 dark:bg-stone-900/20 border border-dashed border-stone-250 dark:border-stone-850 rounded-3xl space-y-4">
+              <div className="mx-auto w-12 h-12 rounded-full bg-stone-800 flex items-center justify-center text-stone-550">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-stone-700 dark:text-stone-300 font-semibold text-sm">Chưa có bài viết cẩm nang nào</p>
+                <p className="text-stone-500 dark:text-stone-550 text-xs">Biên soạn cẩm nang đầu tiên dưới quyền Ban Biên Tập GreenLife để cung cấp kiến thức thực nghiệm xanh!</p>
+              </div>
+              <button
+                onClick={() => setIsCreating(true)}
+                className="px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-450 border border-emerald-500/20 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
+              >
+                <Plus className="h-3.5 w-3.5" /> Bắt đầu viết bài
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {storeArticles.map((post) => {
+                const categoryNames = {
+                  "plant-care": "Y Học Bệnh Cây",
+                  "urban-farming": "Nông Nghiệp Đô Thị",
+                  "eco-living": "Lối Sống Xanh"
+                };
+                const categoryColors = {
+                  "plant-care": "bg-rose-500/10 text-rose-455 border-rose-500/10",
+                  "urban-farming": "bg-emerald-500/10 text-emerald-400 border-emerald-500/10",
+                  "eco-living": "bg-teal-500/10 text-teal-400 border-teal-500/10"
+                };
+
+                return (
+                  <div key={post.id} className="group flex flex-col justify-between bg-stone-100 dark:bg-stone-900/40 border border-stone-200 dark:border-stone-850 rounded-2xl overflow-hidden shadow-xs hover:border-emerald-500/30 transition-all duration-300">
+                    <div className="relative h-44 overflow-hidden bg-stone-900">
+                      <img 
+                        src={post.image} 
+                        alt={post.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                      />
+                      <span className={`absolute top-3 left-3 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider border font-mono uppercase ${categoryColors[post.category] || "bg-stone-700 text-stone-300"}`}>
+                        {categoryNames[post.category] || post.category}
+                      </span>
+                    </div>
+
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div className="space-y-2">
+                        <h3 className="font-display font-bold text-stone-900 dark:text-stone-100 text-sm line-clamp-2 leading-snug group-hover:text-emerald-555 transition-colors">
+                          {post.title}
+                        </h3>
+                        <p className="text-stone-550 dark:text-stone-400 text-xs line-clamp-2 leading-relaxed">
+                          {post.summary}
+                        </p>
+                      </div>
+
+                      {post.taggedProductIds && post.taggedProductIds.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-stone-200 dark:border-stone-850/60">
+                          <span className="text-[9px] text-stone-450 dark:text-stone-500 font-mono font-semibold uppercase flex items-center gap-1">
+                            <Tag className="w-3 h-3 text-emerald-500" /> Sản phẩm liên kết:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {post.taggedProductIds.map((pId) => {
+                              const prod = products.find(p => p.id === pId);
+                              if (!prod) return null;
+                              return (
+                                <span key={pId} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-stone-250 dark:bg-stone-800 text-[9px] text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 max-w-[150px] truncate">
+                                  {prod.name}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-stone-200 dark:border-stone-850/60 text-[10px] text-stone-400 dark:text-stone-500 font-mono">
+                        <div className="space-y-0.5">
+                          <span className="block text-stone-800 dark:text-stone-300 font-semibold">Tác giả: {post.author}</span>
+                          <span className="block text-stone-400">{post.date}</span>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5 text-stone-450" /> {post.views || 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* VIEW B: FORM TO CREATE ARTICLE */}
+      {isCreating && (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Main Content (Col 1-8) */}
+          <div className="lg:col-span-8 space-y-5">
+            
+            <div className="space-y-1.5">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Tiêu đề bài viết:</label>
+              <input
+                type="text"
+                placeholder="Ví dụ: Phác đồ phục hồi bệnh vàng lá thối rễ sinh học từ chiết xuất tỏi"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full bg-stone-100 dark:bg-stone-900 text-stone-850 dark:text-stone-200 border border-stone-250 dark:border-stone-800 focus:border-emerald-500 rounded-2xl py-3 px-4 text-xs font-semibold focus:outline-none"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Phân nhóm chuyên mục:</label>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { id: "plant-care", label: "Y Học Bệnh Cây", desc: "Cẩm nang trị bệnh" },
+                  { id: "urban-farming", label: "Nông Nghiệp Đô Thị", desc: "Trồng rau căn hộ" },
+                  { id: "eco-living", label: "Lối Sống Xanh", desc: "Phong cách sinh thái" }
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategory(cat.id as any)}
+                    className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all ${
+                      category === cat.id
+                        ? "bg-emerald-950/30 text-emerald-400 border-emerald-500/40 shadow-xs"
+                        : "bg-stone-100 dark:bg-stone-900/40 text-stone-500 border-stone-250 dark:border-stone-800 hover:border-stone-700"
+                    }`}
+                  >
+                    <span className="font-bold text-xs block">{cat.label}</span>
+                    <span className="text-[9px] text-stone-450 dark:text-stone-555 mt-0.5 block">{cat.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Tóm tắt bài viết (Summary):</label>
+              <textarea
+                placeholder="Một đoạn mô tả ngắn 1-2 câu tóm tắt bài viết của bạn xuất hiện ngoài danh sách cẩm nang xanh..."
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                rows={2}
+                maxLength={500}
+                className="w-full bg-stone-100 dark:bg-stone-900 text-stone-850 dark:text-stone-200 border border-stone-250 dark:border-stone-800 focus:border-emerald-500 rounded-2xl py-3 px-4 text-xs focus:outline-none resize-none leading-relaxed"
+              />
+            </div>
+
+            <div className="space-y-1.5 relative">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Nội dung chi tiết (Rich HTML/Text):</label>
+              
+              {/* Text Formatting Toolbar */}
+              <div className="flex flex-wrap gap-1.5 bg-stone-150 dark:bg-stone-900 border border-b-0 border-stone-250 dark:border-stone-800 p-2 rounded-t-2xl text-[10px] text-stone-450 font-mono font-bold select-none">
+                <button type="button" onClick={() => insertText("<b>", "</b>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer font-bold">B</button>
+                <button type="button" onClick={() => insertText("<i>", "</i>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer italic">I</button>
+                <button type="button" onClick={() => insertText("<h1>", "</h1>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">H1</button>
+                <button type="button" onClick={() => insertText("<h2>", "</h2>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">H2</button>
+                <button type="button" onClick={() => insertText("<p>", "</p>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">Paragraph</button>
+                <button type="button" onClick={() => insertText("<ul>\n  <li>", "</li>\n</ul>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">List</button>
+                <button type="button" onClick={() => insertText("<br />")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-455 rounded cursor-pointer">Break</button>
+              </div>
+
+              <textarea
+                id="admin-blog-content-textarea"
+                placeholder="Viết nội dung bài viết hướng dẫn chi tiết tại đây. Bạn có thể sử dụng các thẻ HTML cơ bản từ thanh công cụ phía trên..."
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={12}
+                className="w-full bg-stone-100 dark:bg-stone-900 text-stone-850 dark:text-stone-200 border border-t-0 border-stone-250 dark:border-stone-800 focus:border-emerald-500 rounded-b-2xl py-3.5 px-4 text-xs focus:outline-none leading-relaxed font-mono"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Sidebar Settings (Col 9-12) */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Thumbnail Drag & Drop */}
+            <div className="space-y-2">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Ảnh đại diện bài viết (Thumbnail):</label>
+              
+              <div 
+                className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+                  dragActive
+                    ? "border-emerald-500 bg-emerald-950/5"
+                    : image 
+                      ? "border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-900/30"
+                      : "border-stone-250 dark:border-stone-800 bg-stone-100 dark:bg-stone-900/10 hover:border-emerald-500/50"
+                }`}
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById("admin-blog-thumbnail-input")?.click()}
+              >
+                <input 
+                  id="admin-blog-thumbnail-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {image ? (
+                  <div className="space-y-3">
+                    <img 
+                      src={image} 
+                      alt="Thumbnail Preview" 
+                      className="w-full h-32 object-cover rounded-xl border border-stone-200 dark:border-stone-800"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImage("");
+                      }}
+                      className="px-2.5 py-1 text-[9px] bg-rose-500/15 hover:bg-rose-500/25 text-rose-455 border border-rose-500/20 rounded-md font-mono font-bold uppercase transition-colors"
+                    >
+                      Xóa & Thay Ảnh
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 flex flex-col items-center py-2">
+                    <UploadCloud className="h-9 w-9 text-stone-450 animate-bounce" style={{ animationDuration: '3s' }} />
+                    <div className="text-xs text-stone-600 dark:text-stone-300">
+                      <span className="font-bold text-emerald-500 hover:text-emerald-400">Tải ảnh lên</span> hoặc kéo thả ảnh tại đây
+                    </div>
+                    <p className="text-[9px] text-stone-500 font-mono">Chấp nhận JPG, PNG dưới 2MB.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tag Products Selector */}
+            <div className="space-y-2">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Gắn tag sản phẩm hệ thống:</label>
+              
+              <div className="bg-stone-100 dark:bg-stone-900/40 border border-stone-250 dark:border-stone-800 rounded-2xl p-4 space-y-3 max-h-72 flex flex-col justify-between">
+                
+                {/* Micro search inside tags */}
+                <div className="relative shrink-0">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-stone-450" />
+                  <input
+                    type="text"
+                    placeholder="Lọc sản phẩm hệ thống..."
+                    value={tagSearch}
+                    onChange={(e) => setTagSearch(e.target.value)}
+                    className="w-full bg-stone-200 dark:bg-stone-950 text-stone-850 dark:text-stone-200 border border-stone-300 dark:border-stone-850 rounded-lg py-1.5 pl-8 pr-3 text-[10px] focus:outline-none"
+                  />
+                </div>
+
+                <div className="overflow-y-auto space-y-2 pr-1 flex-1 py-1">
+                  {filteredTaggableProducts.length === 0 ? (
+                    <p className="text-[10px] text-stone-500 font-mono text-center py-4">Không có sản phẩm nào phù hợp.</p>
+                  ) : (
+                    filteredTaggableProducts.map((prod) => {
+                      const isChecked = selectedProductIds.includes(prod.id);
+                      return (
+                        <div 
+                          key={prod.id} 
+                          onClick={() => handleToggleProductTag(prod.id)}
+                          className={`flex items-center justify-between p-2 rounded-xl border cursor-pointer select-none transition-all ${
+                            isChecked
+                              ? "bg-emerald-950/20 text-emerald-400 border-emerald-500/35"
+                              : "bg-stone-200/50 dark:bg-stone-950 text-stone-600 dark:text-stone-300 border-stone-250 dark:border-stone-850 hover:bg-stone-200 dark:hover:bg-stone-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <img src={prod.image} alt={prod.name} className="w-8 h-8 object-cover rounded" />
+                            <div>
+                              <span className="font-bold text-[10px] block line-clamp-1">{prod.name}</span>
+                              <span className="text-[9px] text-stone-455 dark:text-stone-550 font-mono font-semibold">{prod.price.toLocaleString("vi-VN")}₫</span>
+                            </div>
+                          </div>
+                          
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={() => {}} // Managed by div onClick
+                            className="h-3.5 w-3.5 rounded text-emerald-500 bg-stone-900 border-stone-800 cursor-pointer"
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="pt-2.5 border-t border-stone-250 dark:border-stone-800 text-[9px] text-stone-450 dark:text-stone-550 font-mono text-right font-semibold shrink-0 uppercase">
+                  Đã chọn: <strong className="text-emerald-550 font-bold">{selectedProductIds.length}</strong> sản phẩm
+                </div>
+              </div>
+            </div>
+
+            {/* Publishing Box */}
+            <div className="bg-stone-100 dark:bg-stone-900/50 p-4 border border-stone-250 dark:border-stone-850 rounded-2xl space-y-3.5 shrink-0">
+              <span className="text-[9px] text-stone-450 dark:text-stone-500 font-mono block uppercase font-bold">Quy chế đăng chuyên đề xanh:</span>
+              <p className="text-[10px] text-stone-500 leading-normal">
+                Bài viết sau khi phát hành dưới danh nghĩa Ban Biên Tập sẽ hiển thị trực tiếp trong mục cẩm nang của khách hàng và có hiệu lực tham khảo chính thức.
+              </p>
+              
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold uppercase rounded-xl text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5 tracking-wider font-mono shadow-md shadow-emerald-500/10 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <Clock className="animate-spin w-4 h-4" /> Đang Gửi...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" /> Phát Hành Cẩm Nang
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+
+        </form>
       )}
 
     </div>

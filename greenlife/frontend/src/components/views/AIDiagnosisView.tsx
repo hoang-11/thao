@@ -2,6 +2,8 @@ import React, { useState, useRef } from "react";
 import { BrainCircuit, Upload, Sparkles, AlertTriangle, CheckCircle, RefreshCw, ShoppingBag, Eye, History, HelpCircle } from "lucide-react";
 import { Product, DiagnosisLog } from "../../types";
 import { MOCK_DIAGNOSIS_PRESETS } from "../../data";
+import { ExpertCalloutBanner } from "./ExpertDirectoryView";
+import { useAppContext } from "../../context/AppContext";
 
 
 interface AIDiagnosisViewProps {
@@ -17,6 +19,7 @@ export const AIDiagnosisView: React.FC<AIDiagnosisViewProps> = ({
   diagnosisLogs,
   onAddDiagnosisLog,
 }) => {
+  const { setCurrentPage } = useAppContext();
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null);
   const [fileBase64, setFileBase64] = useState<string | null>(null);
   const [fileName, setFileName] = useState("");
@@ -111,9 +114,15 @@ export const AIDiagnosisView: React.FC<AIDiagnosisViewProps> = ({
         reqBody.mimeType = "image/jpeg";
       }
 
+      const storedUser = localStorage.getItem("greenlife_current_user");
+      const token = storedUser ? JSON.parse(storedUser).token : null;
+
       const response = await fetch("/api/ai-diagnosis", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(reqBody),
       });
 
@@ -413,6 +422,11 @@ export const AIDiagnosisView: React.FC<AIDiagnosisViewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Expert Callout Banner */}
+              <div className="mt-8 pt-6 border-t border-stone-850/80">
+                <ExpertCalloutBanner onNavigateToDirectory={() => setCurrentPage("booking")} />
+              </div>
 
             </div>
           )}

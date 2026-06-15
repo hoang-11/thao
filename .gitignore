@@ -1,0 +1,9 @@
+# Ignore local backup directories
+temp_backup_frontend/
+
+# Ignore local environment variables inside microservices
+greenlife/ai/.env
+greenlife/ai/.env.local
+greenlife/ai/.env.development
+greenlife/ai/.env.production
+greenlife/ai/.env.test

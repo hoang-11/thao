@@ -1,0 +1,12 @@
+{
+  "name": "greenlife-monorepo",
+  "version": "1.0.0",
+  "description": "Nền tảng sinh thái tích hợp GreenLife - Khởi chạy Monorepo đồng thời",
+  "type": "module",
+  "scripts": {
+    "dev": "node dev.js",
+    "install-all": "node dev.js"
+  },
+  "author": "GreenLife Team",
+  "license": "ISC"
+}

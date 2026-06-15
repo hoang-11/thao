@@ -159,9 +159,15 @@ export const Chatbot: React.FC = () => {
         }, 600);
       } else {
         // Otherwise, send a real API request to our tuned AI Doctor chat endpoint
+        const storedUser = localStorage.getItem("greenlife_current_user");
+        const token = storedUser ? JSON.parse(storedUser).token : null;
+
         fetch("/api/ai/chat", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { 
+            "Content-Type": "application/json",
+            ...(token ? { "Authorization": `Bearer ${token}` } : {})
+          },
           body: JSON.stringify({ question: text }),
         })
           .then((res) => res.json())

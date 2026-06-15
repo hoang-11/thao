@@ -4,7 +4,7 @@ import { HomeView } from "./components/views/HomeView";
 import { ShopView } from "./components/views/ShopView";
 import { ProductDetailView } from "./components/views/ProductDetailView";
 import { AIDiagnosisView } from "./components/views/AIDiagnosisView";
-import { BookingView } from "./components/views/BookingView";
+import { ExpertDirectoryView } from "./components/views/ExpertDirectoryView";
 import { BlogView } from "./components/views/BlogView";
 import { AuthView } from "./components/views/AuthView";
 import { CustomerDashboardView } from "./components/views/CustomerDashboardView";
@@ -63,9 +63,15 @@ export default function App() {
   const handleCheckoutSubmit = async () => {
     if (cart.length === 0) return;
     try {
+      const storedUser = localStorage.getItem("greenlife_current_user");
+      const token = storedUser ? JSON.parse(storedUser).token : null;
+
       const response = await fetch("/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           userId: currentUser?.id || "cust-2",
           totalPrice: cartTotal,
@@ -171,21 +177,7 @@ export default function App() {
               );
             case "booking":
               return (
-                <BookingView
-                  appointments={appointments}
-                  onAddAppointment={(apt: Appointment) => {
-                    bookExpert({
-                      expertName: apt.expertName,
-                      title: apt.title,
-                      date: apt.date,
-                      time: apt.time,
-                      type: apt.type,
-                      price: apt.price,
-                      expertAvatar: apt.expertAvatar,
-                      userNotes: apt.userNotes
-                    });
-                  }}
-                />
+                <ExpertDirectoryView />
               );
             case "blog":
               return <BlogView initialSearch={shopSearch} />;
@@ -227,7 +219,7 @@ export default function App() {
               );
             case "store-profile-setup":
               return (
-                <ProtectedRoute allowedRoles={["store", "admin"]} onPageRedirect={setCurrentPage}>
+                <ProtectedRoute allowedRoles={["customer", "store", "admin"]} onPageRedirect={setCurrentPage}>
                   <StoreProfileSetupView />
                 </ProtectedRoute>
               );

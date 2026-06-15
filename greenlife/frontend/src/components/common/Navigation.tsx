@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Leaf, ShoppingBag, BrainCircuit, Calendar, Newspaper, User, Settings2, Home, Landmark, UserCheck, Sun, Moon, MapPin, Menu, X, LogOut, Cpu, Store, Users, Sprout, TrendingUp, Inbox } from "lucide-react";
+import { Leaf, ShoppingBag, BrainCircuit, Calendar, Newspaper, User, Settings2, Home, Landmark, UserCheck, Sun, Moon, MapPin, Menu, X, LogOut, Cpu, Store, Users, Sprout, TrendingUp, Inbox, FileText, ShieldCheck } from "lucide-react";
 
 import { useAppContext } from "../../context/AppContext";
 
@@ -26,8 +26,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   const matchedStore = stores.find((s) => s.id === selectedStoreId);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const isAdmin = currentUser && currentUser.role === "admin";
-  const isStoreOwner = currentUser && currentUser.role === "store";
+  const isAdmin = userRole === "admin";
+  const isStoreOwner = userRole === "store";
 
   const navItems = isAdmin
     ? [
@@ -36,26 +36,31 @@ export const Navigation: React.FC<NavigationProps> = ({
         { id: "users", label: "Quản Lý Thành Viên", icon: Users },
         { id: "products", label: "Danh Mục Sản Phẩm", icon: Sprout },
         { id: "orders", label: "Giao Dịch Đơn Hàng", icon: ShoppingBag },
-        { id: "bookings", label: "Lịch Hẹn Booking", icon: Calendar },
+        { id: "blogs", label: "Cẩm Nang Xanh", icon: FileText },
       ]
     : isStoreOwner
       ? [
           { id: "overview", label: "Tổng Quan Kinh Doanh", icon: TrendingUp },
           { id: "orders", label: "Quản Lý Đơn Hàng", icon: Inbox },
           { id: "products", label: "Niêm Yết Sản Phẩm", icon: Sprout },
-          { id: "settings", label: "Cấu Hình Nhà Vườn", icon: Settings2 },
+          { id: "blogs", label: "Quản Lý Bài Viết", icon: FileText },
+          { id: "settings", label: "Cấu hình Nhà Vườn", icon: Settings2 },
+          { id: "customer-view-back", label: "Trang Mua Sắm 🛒", icon: Home },
         ]
       : [
           { id: "home", label: "Trang Chủ", icon: Home },
           { id: "shop", label: "Cửa Hàng", icon: ShoppingBag },
           { id: "ai-diagnosis", label: "Bác Sĩ Cây AI", icon: BrainCircuit },
-          { id: "booking", label: "Đặt Lịch Chuyên Gia", icon: Calendar },
+          { id: "booking", label: "Danh Bạ Chuyên Gia", icon: Users },
           { id: "blog", label: "Cẩm Nang Xanh", icon: Newspaper },
         ];
 
   // Dynamically insert specific role dashboard tab if logged in and not admin/store
   if (currentUser && !isAdmin && !isStoreOwner) {
     navItems.push({ id: "customer-dashboard", label: "Hồ Sơ Của Tôi 👤", icon: UserCheck });
+    if (currentUser.is_seller) {
+      navItems.push({ id: "store-dashboard", label: "Kênh Người Bán 🌿", icon: Store });
+    }
   }
 
 
@@ -67,7 +72,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         "users",
         "products",
         "orders",
-        "bookings"
+        "blogs"
       ].includes(id);
 
       if (isAdminItem) {
@@ -77,11 +82,18 @@ export const Navigation: React.FC<NavigationProps> = ({
         setCurrentPage(id);
       }
     } else if (isStoreOwner) {
+      if (id === "customer-view-back") {
+        setUserRole("customer");
+        setCurrentPage("home");
+        setIsMobileMenuOpen(false);
+        return;
+      }
       const isStoreItem = [
         "overview",
         "orders",
         "products",
-        "settings"
+        "settings",
+        "blogs"
       ].includes(id);
 
       if (isStoreItem) {
@@ -91,6 +103,13 @@ export const Navigation: React.FC<NavigationProps> = ({
         setCurrentPage(id);
       }
     } else {
+      if (id === "store-dashboard") {
+        setUserRole("store");
+        setCurrentPage("store-dashboard");
+        setStoreActiveTab("overview");
+        setIsMobileMenuOpen(false);
+        return;
+      }
       setCurrentPage(id);
     }
     setIsMobileMenuOpen(false);
@@ -126,6 +145,55 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* Quick Actions Bar (Right) */}
           <div className="hidden md:flex items-center gap-3 shrink-0">
+
+            {/* Quick Switch to Dashboard for Admin / Store Owners when browsing as customer */}
+            {currentUser && userRole === "customer" && (currentUser.role === "admin" || currentUser.role === "store") && (
+              <button
+                onClick={() => {
+                  if (currentUser.role === "admin") {
+                    setUserRole("admin");
+                    setCurrentPage("admin-dashboard");
+                    setAdminActiveTab("overview");
+                  } else {
+                    setUserRole("store");
+                    setCurrentPage("store-dashboard");
+                    setStoreActiveTab("overview");
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all duration-300 cursor-pointer btn-animated shadow-md hover:scale-105 ${
+                  currentUser.role === "admin"
+                    ? "bg-amber-955/50 border-amber-500/40 text-amber-400 hover:bg-amber-900/50 hover:border-amber-400 shadow-amber-950/40"
+                    : "bg-emerald-955/50 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/50 hover:border-emerald-400 shadow-emerald-950/40"
+                }`}
+              >
+                {currentUser.role === "admin" ? (
+                  <>
+                    <ShieldCheck className="h-4 w-4 text-amber-400 animate-pulse" />
+                    <span>Kênh Quản Trị 🛡️</span>
+                  </>
+                ) : (
+                  <>
+                    <Store className="h-4 w-4 text-emerald-400 animate-pulse" />
+                    <span>Kênh Nhà Vườn 🏡</span>
+                  </>
+                )}
+              </button>
+            )}
+            
+            {/* Shopee-style back to buyer shortcut */}
+            {isStoreOwner && (
+              <button
+                onClick={() => {
+                  setUserRole("customer");
+                  setCurrentPage("home");
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/35 hover:border-emerald-400 rounded-xl text-xs font-bold transition-all shadow-sm tracking-wide cursor-pointer btn-animated animate-badge-pop"
+                title="Quay lại giao diện mua sắm cho khách hàng"
+              >
+                <Home className="w-3.5 h-3.5 text-emerald-400" />
+                Vào Trang Mua Sắm
+              </button>
+            )}
             
             {/* Store Indicator */}
             {matchedStore && (
@@ -170,8 +238,8 @@ export const Navigation: React.FC<NavigationProps> = ({
             <button
               onClick={() => {
                 if (currentUser) {
-                  if (currentUser.role === "admin") handleNavClick("admin-dashboard");
-                  else if (currentUser.role === "store") handleNavClick("store-dashboard");
+                  if (userRole === "admin") handleNavClick("admin-dashboard");
+                  else if (userRole === "store") handleNavClick("store-dashboard");
                   else handleNavClick("customer-dashboard");
                 } else {
                   handleNavClick("auth");
@@ -183,16 +251,16 @@ export const Navigation: React.FC<NavigationProps> = ({
                   : "bg-stone-800/80 hover:bg-stone-850 border-stone-700/40"
               } ${
                 currentUser 
-                  ? currentUser.role === "admin" 
+                  ? userRole === "admin" 
                     ? "border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.25)]" 
-                    : currentUser.role === "store" 
+                    : userRole === "store" 
                       ? "border-emerald-500/50 shadow-[0_0_10px_rgba(16,185,129,0.25)]" 
                       : "border-teal-500/50"
                   : ""
               }`}
-              title={currentUser ? `Tài khoản: ${currentUser.name} (${currentUser.role})` : "Tài khoản / Đăng nhập"}
+              title={currentUser ? `Tài khoản: ${currentUser.name} (${userRole})` : "Tài khoản / Đăng nhập"}
             >
-              <User className={`h-5 w-5 ${currentUser?.role === "admin" ? "text-amber-400" : ""}`} />
+              <User className={`h-5 w-5 ${userRole === "admin" ? "text-amber-400" : ""}`} />
             </button>
             
             {currentUser && (
@@ -238,7 +306,7 @@ export const Navigation: React.FC<NavigationProps> = ({
         {/* Row 2: Centered Desktop Navigation Tabs (Wireframe Alignment) */}
         <div className="hidden lg:flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 items-center justify-center border-t border-emerald-950/10">
           <nav className="flex items-center gap-1.5 xl:gap-2">
-            {navItems.map((item) => {
+            {navItems.filter((item) => item.id !== "customer-view-back").map((item) => {
               const Icon = item.icon;
               const isActive = isAdmin
                 ? (currentPage === "admin-dashboard" && adminActiveTab === item.id)
@@ -297,6 +365,41 @@ export const Navigation: React.FC<NavigationProps> = ({
               })}
             </nav>
 
+            {/* Quick Switch to Dashboard for Admin / Store Owners on mobile when browsing as customer */}
+            {currentUser && userRole === "customer" && (currentUser.role === "admin" || currentUser.role === "store") && (
+              <button
+                onClick={() => {
+                  if (currentUser.role === "admin") {
+                    setUserRole("admin");
+                    setCurrentPage("admin-dashboard");
+                    setAdminActiveTab("overview");
+                  } else {
+                    setUserRole("store");
+                    setCurrentPage("store-dashboard");
+                    setStoreActiveTab("overview");
+                  }
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  currentUser.role === "admin"
+                    ? "bg-amber-955/60 border-amber-500/30 text-amber-400"
+                    : "bg-emerald-955/60 border-emerald-500/30 text-emerald-400"
+                }`}
+              >
+                {currentUser.role === "admin" ? (
+                  <>
+                    <ShieldCheck className="h-4.5 w-4.5" />
+                    <span>VÀO KÊNH QUẢN TRỊ 🛡️</span>
+                  </>
+                ) : (
+                  <>
+                    <Store className="h-4.5 w-4.5" />
+                    <span>VÀO KÊNH NHÀ VƯỜN 🏡</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {/* Store Indicator in Mobile */}
             {matchedStore && (
               <div className="flex items-center gap-2 px-4 py-3 bg-emerald-950/40 border border-emerald-500/20 rounded-xl text-xs text-stone-300 font-mono">
@@ -322,8 +425,8 @@ export const Navigation: React.FC<NavigationProps> = ({
               <button
                 onClick={() => {
                   if (currentUser) {
-                    if (currentUser.role === "admin") handleNavClick("admin-dashboard");
-                    else if (currentUser.role === "store") handleNavClick("store-dashboard");
+                    if (userRole === "admin") handleNavClick("admin-dashboard");
+                    else if (userRole === "store") handleNavClick("store-dashboard");
                     else handleNavClick("customer-dashboard");
                   } else {
                     handleNavClick("auth");
@@ -400,7 +503,7 @@ export const Footer: React.FC<{ setCurrentPage: (p: string) => void }> = ({ setC
             </li>
             <li>
               <button onClick={() => setCurrentPage("booking")} className="hover:text-emerald-400 transition-colors">
-                Ươm mầm & thiết kế cảnh quan
+                Danh bạ chuyên gia nông nghiệp
               </button>
             </li>
             <li>

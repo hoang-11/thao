@@ -1,4 +1,4 @@
-import { Product, BlogPost, Appointment, StoreOrder, User, EcoStore, Plant, DiagnosisLog } from "./types";
+import { Product, BlogPost, Appointment, StoreOrder, User, EcoStore, Plant, DiagnosisLog, Expert } from "./types";
 
 export const PRODUCTS: Product[] = [
   {
@@ -177,39 +177,42 @@ export const BLOG_POSTS: BlogPost[] = [
   }
 ];
 
-export const EXPERTS = [
+export const EXPERTS: Expert[] = [
   {
     id: "exp-1",
     name: "ThS. Nguyễn Thành Trung",
-    role: "Chuyên gia Sinh học Thực vật",
-    rating: 4.9,
-    reviews: 142,
+    title: "Thạc sĩ Sinh học Thực vật",
+    specialty: ["Trị bệnh rễ cây", "Giống cây khỏe", "Dinh dưỡng vi sinh"],
+    location: "Hà Nội",
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80",
-    experience: "12 năm công tác Trung tâm Nghiên cứu Giống cây Lâm nghiệp",
-    price: 350000, // VND / hour consult
-    topic: "Chẩn đoán sâu bệnh công nghệ cao & Lai tạo giống gen khỏe"
+    phone: "0905123456",
+    zaloLink: "https://zalo.me/0905123456",
+    facebookLink: "https://facebook.com/trung.sinhbiolog",
+    bio: "Thạc sĩ sinh vật học với 12 năm kinh nghiệm thực chiến tại Viện Nghiên cứu Lâm nghiệp Việt Nam. Chuyên khoa chẩn đoán các chủng nấm bệnh rễ, phục hồi sinh khối rễ cây lan và sen đá đột biến."
   },
   {
     id: "exp-2",
     name: "KTS. Lê Thị Mai Chi",
-    role: "Nhà thiết kế Không gian Xanh cảnh quan",
-    rating: 5.0,
-    reviews: 98,
+    title: "Nhà Thiết Kế Không Gian Xanh Cảnh Quan",
+    specialty: ["Thiết kế ban công", "Decor phong thủy", "Quy hoạch tiểu cảnh"],
+    location: "Đà Nẵng",
     avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80",
-    experience: "Cố vấn kiến trúc cảnh quan bền vững cho các dự án Eco-Resort",
-    price: 500000,
-    topic: "Vườn bento đa năng trong căn hộ nhỏ & Decor phong thủy"
+    phone: "0914987654",
+    zaloLink: "https://zalo.me/0914987654",
+    facebookLink: "https://facebook.com/maichi.landscape",
+    bio: "Kiến trúc sư cảnh quan sinh thái, cố vấn quy hoạch cho nhiều chuỗi Resort cao cấp tại miền Trung. Đam mê thiết kế các hệ vườn rau ban công bento xanh, tối giản và mang năng lượng phong thủy cát lành."
   },
   {
     id: "exp-3",
     name: "KS. Đào Hoàng Long",
-    role: "Kỹ sư IoT & Canh tác Nông nghiệp Thông minh",
-    rating: 4.8,
-    reviews: 115,
+    title: "Kỹ Sư Nông Nghiệp Công Nghệ Cao (IoT)",
+    specialty: ["IoT SmartHome", "Tưới nhỏ giọt tuần hoàn", "Nhà kính tự động"],
+    location: "TP. Hồ Chí Minh",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
-    experience: "Tác giả bộ module chip thông minh kiểm soát dinh dưỡng đất nông trại",
-    price: 400000,
-    topic: "Giải pháp nhà kính tự động, tiết kiệm tuần hoàn nước hiện đại"
+    phone: "0988555777",
+    zaloLink: "https://zalo.me/0988555777",
+    facebookLink: "https://facebook.com/long.iotgreen",
+    bio: "Kỹ sư tự động hóa nông nghiệp, tác giả của hệ thống cảm biến quang năng Solar Sun-Mimic. Chuyên tư vấn thiết lập chu trình chăm sóc thông minh qua ứng dụng điện thoại cho chung cư lầu cao."
   }
 ];
 
@@ -282,18 +285,26 @@ export const MOCK_USERS: User[] = [
     carbonCredits: 4250,
     co2SavedKg: 342.5,
     registeredDate: "2025-01-10",
-    savedProductIds: ["prod-1", "prod-3"]
+    savedProductIds: ["prod-1", "prod-3"],
+    is_seller: false,
+    shop_name: "",
+    shop_address: "",
+    bank_account: ""
   },
   {
     id: "user-2",
     name: "Lê Minh Dương",
     email: "nursery.partner@greenlife.vn",
     avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80",
-    role: "store",
+    role: "customer", // changed to customer, is_seller determines seller capability!
     carbonCredits: 12800,
     co2SavedKg: 705.0,
     registeredDate: "2024-06-15",
-    savedProductIds: ["prod-2", "prod-5"]
+    savedProductIds: ["prod-2", "prod-5"],
+    is_seller: true,
+    shop_name: "Nhà Vườn Thảo Mộc Đô Thị GreenLife Hòa Lạc",
+    shop_address: "Khu Công Nghệ Cao Hòa Lạc, Thạch Thất, Hà Nội, Việt Nam",
+    bank_account: "0905123456789 (Vietcombank)"
   },
   {
     id: "user-3",
@@ -304,7 +315,11 @@ export const MOCK_USERS: User[] = [
     carbonCredits: 99999,
     co2SavedKg: 1490.0,
     registeredDate: "2023-10-01",
-    savedProductIds: []
+    savedProductIds: [],
+    is_seller: false,
+    shop_name: "",
+    shop_address: "",
+    bank_account: ""
   }
 ];
 

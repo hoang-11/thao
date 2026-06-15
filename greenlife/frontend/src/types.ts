@@ -10,6 +10,7 @@ export interface Product {
   details: string[];
   specs: Record<string, string>;
   stock: number;
+  shopId?: string;
 }
 
 export interface CartItem {
@@ -56,6 +57,21 @@ export interface BlogPost {
   category: "urban-farming" | "eco-living" | "plant-care";
   image: string;
   likes?: number;
+  views?: number;
+  taggedProductIds?: string[];
+}
+
+export interface Expert {
+  id: string | number;
+  name: string;
+  title: string;
+  specialty: string[];
+  location: string;
+  avatar: string;
+  phone: string;
+  zaloLink: string;
+  facebookLink: string;
+  bio: string;
 }
 
 export interface StoreOrder {
@@ -83,6 +99,32 @@ export interface User {
   co2SavedKg: number;
   registeredDate: string;
   savedProductIds: string[];
+  is_seller?: boolean;
+  shop_name?: string;
+  shop_address?: string;
+  bank_account?: string;
+  shop_email?: string;
+  shop_phone?: string;
+  shipping_green_express?: boolean;
+  shipping_hoa_toc?: boolean;
+  shipping_spx?: boolean;
+  shipping_ghtk?: boolean;
+  kyc_front_image?: string;
+  kyc_back_image?: string;
+}
+
+export interface UserAddress {
+  address_id?: number;
+  user_id: string;
+  fullname: string;
+  phone: string;
+  province: string;
+  district: string;
+  ward: string;
+  detail_address: string;
+  is_default: boolean;
+  is_pickup: boolean;
+  type: "home" | "office";
 }
 
 export interface EcoStore {
@@ -121,3 +163,16 @@ export interface RoutePermission {
   allowedRoles: Array<"customer" | "store" | "admin">;
   fallbackPage: string;
 }
+
+export interface Feedback {
+  id: number;
+  productId: string;
+  userId: string;
+  orderId: string;
+  rating: number;
+  comment: string;
+  images: string[];
+  createdAt: string;
+  userName?: string;
+}
+

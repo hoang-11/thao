@@ -1,6 +1,8 @@
-import React, { useState } from "react";
-import { ArrowLeft, Leaf, ShieldCheck, Heart, ShoppingBag, Landmark, MessageSquare } from "lucide-react";
-import { Product } from "../../types";
+import React, { useState, useEffect } from "react";
+import { ArrowLeft, Leaf, ShieldCheck, Heart, ShoppingBag, Landmark, MessageSquare, Star, X } from "lucide-react";
+import { Product, Feedback } from "../../types";
+import { FeedbackService } from "../../services/feedbackService";
+
 
 
 interface ProductDetailViewProps {
@@ -19,21 +21,41 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
   const [soilAddon, setSoilAddon] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
 
-  // Hardcoded rich localized reviewer comments to support full premium layout authenticity
-  const reviews = [
-    {
-      author: "Nguyễn Hải Đăng",
-      date: "2026-05-18",
-      rating: 5,
-      comment: "Tuyệt vời, shop giao đóng gói có màng mỏng bao bọc gốm rất kỹ lưỡng. Đầm rễ chất xốp ẩm hoàn hảo, bón phân trùn quế cây sực nảy chồi sau có 1 tuần!"
-    },
-    {
-      author: "Hoàng Vy Anh",
-      date: "2026-05-12",
-      rating: 4,
-      comment: "Đã rinh chiếc cảm biến IoT Smart-Grow về cắm ở vườn ban công chung cư. Đồng bộ app mượt mà và đo chính xác lượng ánh nắng thực tế để dời sen đá kịp thời."
-    }
-  ];
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [loadingFeedbacks, setLoadingFeedbacks] = useState(true);
+  const [selectedFilter, setSelectedFilter] = useState<string>("all");
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadFeedbacks = async () => {
+      setLoadingFeedbacks(true);
+      try {
+        const data = await FeedbackService.getProductFeedbacks(product.id);
+        setFeedbacks(data);
+      } catch (err) {
+        console.error("Failed to load feedbacks:", err);
+      } finally {
+        setLoadingFeedbacks(false);
+      }
+    };
+    loadFeedbacks();
+  }, [product.id]);
+
+  const averageRating = feedbacks.length === 0 
+    ? String(product.rating || 5.0)
+    : (feedbacks.reduce((sum, f) => sum + f.rating, 0) / feedbacks.length).toFixed(1);
+
+  const anonymizeName = (name: string) => {
+    if (!name) return "k***g";
+    const trimmed = name.trim();
+    if (trimmed.length <= 2) return trimmed.toLowerCase() + "***";
+    const parts = trimmed.split(" ");
+    const lastName = parts[parts.length - 1];
+    const firstChar = trimmed[0].toLowerCase();
+    const lastChar = lastName[lastName.length - 1].toLowerCase();
+    return `${firstChar}***${lastChar}`;
+  };
+
 
   return (
     <div className="space-y-8 pb-20">
@@ -218,30 +240,141 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             </div>
           </div>
 
-          {/* User Reviews */}
-          <div className="pt-6 space-y-4">
-            <h3 className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-emerald-400" />
-              Nhận Xét Từ Cộng Đồng Sống Xanh ({reviews.length})
+          {/* User Reviews (Shopee Flow) */}
+          <div className="pt-8 space-y-6">
+            <h3 className="text-base font-semibold tracking-tight text-white flex items-center gap-2 border-b border-stone-800 pb-3">
+              <MessageSquare className="h-4.5 w-4.5 text-emerald-400" />
+              Đánh Giá Từ Khách Hàng ({feedbacks.length})
             </h3>
-            
-            <div className="space-y-3">
-              {reviews.map((rev, idx) => (
-                <div key={idx} className="bg-stone-900/10 border border-stone-800 p-4 rounded-xl space-y-2">
-                  <div className="flex justify-between text-xs font-mono">
-                    <span className="text-stone-200 font-semibold">{rev.author}</span>
-                    <span className="text-stone-500">{rev.date}</span>
-                  </div>
-                  <p className="text-stone-400 text-xs leading-relaxed">
-                    {rev.comment}
-                  </p>
+
+            {/* Shopee-style Rating Dashboard */}
+            <div className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-850 p-6 rounded-3xl grid grid-cols-1 md:grid-cols-12 gap-6 items-center shadow-sm">
+              <div className="md:col-span-4 text-center md:border-r border-stone-200 dark:border-stone-850 pr-0 md:pr-6 space-y-1">
+                <div className="text-3xl font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
+                  {averageRating} <span className="text-sm font-normal text-stone-500">/ 5</span>
                 </div>
-              ))}
+                <div className="flex justify-center gap-1 pt-1.5">
+                  {[1, 2, 3, 4, 5].map((star) => {
+                    const active = star <= Math.round(Number(averageRating));
+                    return <Star key={star} className={`w-4 h-4 ${active ? "text-amber-400 fill-current" : "text-stone-700 dark:text-stone-800"}`} />;
+                  })}
+                </div>
+                <p className="text-[10px] text-stone-400 font-mono">Điểm Đánh Giá Trung Bình</p>
+              </div>
+              
+              <div className="md:col-span-8 flex flex-wrap gap-2">
+                {[
+                  { id: "all", label: `Tất cả (${feedbacks.length})` },
+                  { id: "5", label: `5 Sao (${feedbacks.filter(f => f.rating === 5).length})` },
+                  { id: "4", label: `4 Sao (${feedbacks.filter(f => f.rating === 4).length})` },
+                  { id: "3", label: `3 Sao (${feedbacks.filter(f => f.rating === 3).length})` },
+                  { id: "images", label: `Có Hình Ảnh (${feedbacks.filter(f => f.images && f.images.length > 0).length})` }
+                ].map((fTab) => (
+                  <button
+                    key={fTab.id}
+                    onClick={() => setSelectedFilter(fTab.id)}
+                    className={`px-4 py-2 text-xs font-semibold rounded-xl border transition-all cursor-pointer ${
+                      selectedFilter === fTab.id
+                        ? "bg-emerald-500 border-emerald-500 text-black shadow-sm font-bold"
+                        : "bg-stone-100 dark:bg-stone-900 border-stone-250 dark:border-stone-800 text-stone-700 dark:text-stone-400 hover:text-stone-950 dark:hover:text-stone-100 hover:border-stone-400"
+                    }`}
+                  >
+                    {fTab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            {/* Reviews List */}
+            <div className="space-y-4">
+              {loadingFeedbacks ? (
+                <div className="text-center py-6 text-stone-500 text-xs font-mono">Đang tải đánh giá sản phẩm...</div>
+              ) : feedbacks.filter(f => {
+                if (selectedFilter === "all") return true;
+                if (selectedFilter === "images") return f.images && f.images.length > 0;
+                return f.rating === parseInt(selectedFilter, 10);
+              }).length === 0 ? (
+                <div className="text-center py-6 text-stone-500 text-xs font-mono">Chưa có đánh giá nào phù hợp với bộ lọc.</div>
+              ) : (
+                feedbacks
+                  .filter(f => {
+                    if (selectedFilter === "all") return true;
+                    if (selectedFilter === "images") return f.images && f.images.length > 0;
+                    return f.rating === parseInt(selectedFilter, 10);
+                  })
+                  .map((rev) => (
+                    <div key={rev.id} className="bg-stone-900/10 dark:bg-stone-950/20 border border-stone-250 dark:border-stone-850 p-5 rounded-2xl space-y-3 shadow-sm">
+                      <div className="flex justify-between items-start">
+                        <div className="space-y-1">
+                          <span className="text-xs text-stone-800 dark:text-stone-200 font-semibold">{anonymizeName(rev.userName || "")}</span>
+                          <div className="flex gap-0.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star key={star} className={`w-3.5 h-3.5 ${star <= rev.rating ? "text-amber-400 fill-current" : "text-stone-700 dark:text-stone-800"}`} />
+                            ))}
+                          </div>
+                        </div>
+                        <span className="text-[10px] text-stone-400 font-mono">
+                          {new Date(rev.createdAt).toLocaleDateString("vi-VN", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit"
+                          })}
+                        </span>
+                      </div>
+                      
+                      <p className="text-stone-600 dark:text-stone-300 text-xs leading-relaxed font-sans">
+                        {rev.comment || <span className="text-stone-500 italic">Người dùng không viết bình luận.</span>}
+                      </p>
+
+                      {/* Attachment Images Grid */}
+                      {rev.images && rev.images.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-1.5">
+                          {rev.images.map((img, imgIdx) => (
+                            <img
+                              key={imgIdx}
+                              src={img}
+                              alt="Đính kèm đánh giá"
+                              onClick={() => setZoomedImage(img)}
+                              className="w-16 h-16 object-cover rounded-xl border border-stone-250 dark:border-stone-800 cursor-zoom-in hover:opacity-85 transition-opacity"
+                              referrerPolicy="no-referrer"
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))
+              )}
             </div>
           </div>
 
         </div>
       </div>
+
+      {/* Zoom Modal Overlay */}
+      {zoomedImage && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/85 backdrop-blur-xs cursor-zoom-out animate-fadeIn"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div 
+            className="relative max-w-3xl max-h-[85vh] bg-stone-900 border border-stone-850 rounded-2xl overflow-hidden shadow-2xl p-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setZoomedImage(null)}
+              className="absolute top-3 right-3 p-2 bg-stone-950/70 hover:bg-stone-950/95 border border-stone-800 text-stone-300 hover:text-white rounded-xl transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <img 
+              src={zoomedImage} 
+              alt="Ảnh phóng to" 
+              className="max-w-full max-h-[80vh] object-contain rounded-xl"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

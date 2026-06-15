@@ -24,11 +24,17 @@ import {
   Search,
   Filter,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  Tag,
+  ChevronLeft,
+  UploadCloud,
+  BookOpen
 } from "lucide-react";
-import { StoreOrder, Product } from "../../types";
+import { StoreOrder, Product, BlogPost } from "../../types";
 import { INITIAL_ORDERS } from "../../data";
 import { useAppContext } from "../../context/AppContext";
+import { ArticleService } from "../../services/articleService";
 
 interface StoreDashboardViewProps {
   products: Product[];
@@ -39,7 +45,7 @@ export const StoreDashboardView: React.FC<StoreDashboardViewProps> = ({
   products,
   onAddProduct,
 }) => {
-  const { stores, updateStoreInfo, currentUser, storeActiveTab, setStoreActiveTab } = useAppContext();
+  const { stores, updateStoreInfo, currentUser, storeActiveTab, setStoreActiveTab, blogPosts, refreshArticles } = useAppContext();
 
   // Active tab state connected directly to global context
   const activeTab = storeActiveTab;
@@ -772,6 +778,574 @@ export const StoreDashboardView: React.FC<StoreDashboardViewProps> = ({
             </button>
           </form>
         </div>
+      )}
+
+      {/* 5. BLOGS TAB */}
+      {activeTab === "blogs" && (
+        <BlogManagerSection 
+          myStore={myStore}
+          myProducts={myProducts}
+          blogPosts={blogPosts}
+          currentUser={currentUser}
+          refreshArticles={refreshArticles}
+        />
+      )}
+
+    </div>
+  );
+};
+
+interface BlogManagerSectionProps {
+  myStore: any;
+  myProducts: Product[];
+  blogPosts: BlogPost[];
+  currentUser: any;
+  refreshArticles: () => Promise<void>;
+}
+
+const BlogManagerSection: React.FC<BlogManagerSectionProps> = ({
+  myStore,
+  myProducts,
+  blogPosts,
+  currentUser,
+  refreshArticles
+}) => {
+  const [isCreating, setIsCreating] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  
+  // Form States
+  const [title, setTitle] = useState("");
+  const [summary, setSummary] = useState("");
+  const [content, setContent] = useState("");
+  const [category, setCategory] = useState<"urban-farming" | "eco-living" | "plant-care">("plant-care");
+  const [image, setImage] = useState("");
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [tagSearch, setTagSearch] = useState("");
+  
+  // Status states
+  const [submitting, setSubmitting] = useState(false);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [dragActive, setDragActive] = useState(false);
+
+  // Filter posts that correspond to this store/author
+  const storeArticles = useMemo(() => {
+    return blogPosts.filter((post) => {
+      const isMyStoreAuthor = post.author === myStore?.name || post.author?.includes("Nhà Vườn") || post.author?.includes(myStore?.ownerName);
+      const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) || post.summary.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesSearch;
+    });
+  }, [blogPosts, myStore, searchTerm]);
+
+  // Handle drag and drop image upload
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      convertToBase64(file);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      convertToBase64(file);
+    }
+  };
+
+  const convertToBase64 = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setErrorMsg("Vui lòng tải lên một file ảnh hợp lệ.");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg("Dung lượng ảnh phải nhỏ hơn 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onloadend = () => {
+      setImage(reader.result as string);
+      setErrorMsg("");
+    };
+  };
+
+  // Helper formatting for Rich Text Simulator
+  const insertText = (before: string, after: string = "") => {
+    const textarea = document.getElementById("blog-content-textarea") as HTMLTextAreaElement;
+    if (!textarea) return;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selected = text.substring(start, end);
+    const replacement = before + selected + after;
+    setContent(text.substring(0, start) + replacement + text.substring(end));
+    // Refocus
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + before.length, start + before.length + selected.length);
+    }, 0);
+  };
+
+  const handleToggleProductTag = (productId: string) => {
+    setSelectedProductIds(prev => 
+      prev.includes(productId) 
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
+
+  const filteredTaggableProducts = useMemo(() => {
+    return myProducts.filter(p => p.name.toLowerCase().includes(tagSearch.toLowerCase()));
+  }, [myProducts, tagSearch]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !content.trim()) {
+      setErrorMsg("Tiêu đề và Nội dung bài viết không được để trống.");
+      return;
+    }
+    setSubmitting(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      const res = await ArticleService.createArticle({
+        title,
+        category,
+        summary: summary || (content.substring(0, 120) + "..."),
+        content,
+        image,
+        authorId: currentUser?.id || "store-3",
+        taggedProductIds: selectedProductIds
+      });
+
+      if (res.success) {
+        setSuccessMsg(res.message);
+        await refreshArticles();
+        // Reset states
+        setTitle("");
+        setSummary("");
+        setContent("");
+        setImage("");
+        setSelectedProductIds([]);
+        setCategory("plant-care");
+        setTimeout(() => {
+          setSuccessMsg("");
+          setIsCreating(false);
+        }, 2000);
+      } else {
+        setErrorMsg("Đăng bài viết thất bại. Vui lòng kiểm tra lại.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Lỗi kết nối khi gửi bài viết.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="bg-stone-50 dark:bg-stone-950 border border-stone-200 dark:border-stone-850 p-6 sm:p-8 rounded-3xl space-y-6 shadow-xs animate-slide-down">
+      
+      {/* Tab Header with Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-stone-200 dark:border-stone-850 pb-5">
+        <div>
+          <h2 className="font-display font-semibold text-stone-900 dark:text-stone-100 text-lg uppercase tracking-wide flex items-center gap-2">
+            <FileText className="h-5 w-5 text-emerald-500" />
+            {isCreating ? "Viết Cẩm Nang Xanh Mới" : "Cẩm Nang Xanh của Vườn"}
+          </h2>
+          <p className="text-xs text-stone-400 mt-1">
+            {isCreating ? "Chia sẻ kiến thức gieo trồng sạch, chẩn đoán bệnh cây và quảng bá sản phẩm xanh" : "Quản lý và biên tập các bài viết hướng dẫn chuyên đề sinh thái của bạn"}
+          </p>
+        </div>
+
+        <button
+          onClick={() => {
+            setIsCreating(!isCreating);
+            setErrorMsg("");
+            setSuccessMsg("");
+          }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase transition-all tracking-wider flex items-center gap-1.5 cursor-pointer btn-animated ${
+            isCreating
+              ? "bg-stone-800 text-stone-300 border border-stone-700/60 hover:bg-stone-750"
+              : "bg-emerald-500 hover:bg-emerald-400 text-black shadow-lg shadow-emerald-500/20"
+          }`}
+        >
+          {isCreating ? (
+            <>
+              <ChevronLeft className="h-4 w-4" /> Quay Lại
+            </>
+          ) : (
+            <>
+              <PlusCircle className="h-4 w-4" /> Viết Bài Mới
+            </>
+          )}
+        </button>
+      </div>
+
+      {successMsg && (
+        <div className="p-4 bg-emerald-950/40 border border-emerald-500/30 text-emerald-400 rounded-2xl text-xs flex items-center gap-2 animate-badge-pop">
+          <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+          <span>{successMsg}</span>
+        </div>
+      )}
+
+      {errorMsg && (
+        <div className="p-4 bg-rose-950/40 border border-rose-500/30 text-rose-455 rounded-2xl text-xs flex items-center gap-2 animate-badge-pop">
+          <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
+          <span>{errorMsg}</span>
+        </div>
+      )}
+
+      {/* VIEW A: LIST ARTICLES */}
+      {!isCreating && (
+        <div className="space-y-6">
+          
+          {/* Search bar & Filter */}
+          <div className="flex items-center gap-3 bg-stone-100 dark:bg-stone-900/50 p-2 rounded-2xl border border-stone-200 dark:border-stone-850 max-w-md">
+            <Search className="h-4 w-4 text-stone-400 shrink-0 ml-2" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm bài viết..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="bg-transparent border-none text-xs w-full text-stone-800 dark:text-stone-100 focus:outline-none placeholder-stone-500"
+            />
+          </div>
+
+          {storeArticles.length === 0 ? (
+            <div className="py-16 text-center bg-stone-100 dark:bg-stone-900/20 border border-dashed border-stone-250 dark:border-stone-850 rounded-3xl space-y-4">
+              <div className="mx-auto w-12 h-12 rounded-full bg-stone-800 flex items-center justify-center text-stone-550">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-stone-700 dark:text-stone-300 font-semibold text-sm">Chưa có bài viết cẩm nang nào</p>
+                <p className="text-stone-500 dark:text-stone-550 text-xs">Chia sẻ kinh nghiệm làm vườn hữu cơ đầu tiên của bạn để tăng khả năng tương tác với khách hàng!</p>
+              </div>
+              <button
+                onClick={() => setIsCreating(true)}
+                className="px-4 py-2 bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-450 border border-emerald-500/20 rounded-xl text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
+              >
+                <PlusCircle className="h-3.5 w-3.5" /> Bắt đầu viết bài
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {storeArticles.map((post) => {
+                const categoryNames = {
+                  "plant-care": "Y Học Bệnh Cây",
+                  "urban-farming": "Nông Nghiệp Đô Thị",
+                  "eco-living": "Lối Sống Xanh"
+                };
+                const categoryColors = {
+                  "plant-care": "bg-rose-500/10 text-rose-455 border-rose-500/10",
+                  "urban-farming": "bg-emerald-500/10 text-emerald-400 border-emerald-500/10",
+                  "eco-living": "bg-teal-500/10 text-teal-400 border-teal-500/10"
+                };
+
+                return (
+                  <div key={post.id} className="group flex flex-col justify-between bg-stone-100 dark:bg-stone-900/40 border border-stone-200 dark:border-stone-850 rounded-2xl overflow-hidden shadow-xs hover:border-emerald-500/30 transition-all duration-300">
+                    <div className="relative h-44 overflow-hidden bg-stone-900">
+                      <img 
+                        src={post.image} 
+                        alt={post.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                      />
+                      <span className={`absolute top-3 left-3 px-2 py-0.5 rounded text-[8px] font-bold tracking-wider border font-mono uppercase ${categoryColors[post.category] || "bg-stone-700 text-stone-300"}`}>
+                        {categoryNames[post.category] || post.category}
+                      </span>
+                    </div>
+
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                      <div className="space-y-2">
+                        <h3 className="font-display font-bold text-stone-900 dark:text-stone-100 text-sm line-clamp-2 leading-snug group-hover:text-emerald-555 transition-colors">
+                          {post.title}
+                        </h3>
+                        <p className="text-stone-500 dark:text-stone-400 text-xs line-clamp-2 leading-relaxed">
+                          {post.summary}
+                        </p>
+                      </div>
+
+                      {post.taggedProductIds && post.taggedProductIds.length > 0 && (
+                        <div className="space-y-1.5 pt-2 border-t border-stone-200 dark:border-stone-850/60">
+                          <span className="text-[9px] text-stone-450 dark:text-stone-500 font-mono font-semibold uppercase flex items-center gap-1">
+                            <Tag className="w-3 h-3 text-emerald-500" /> Sản phẩm gắn kèm:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5">
+                            {post.taggedProductIds.map((pId) => {
+                              const prod = myProducts.find(p => p.id === pId);
+                              if (!prod) return null;
+                              return (
+                                <span key={pId} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-stone-200 dark:bg-stone-800 text-[9px] text-stone-600 dark:text-stone-300 border border-stone-300 dark:border-stone-700 max-w-[150px] truncate">
+                                  {prod.name}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between pt-3 border-t border-stone-200 dark:border-stone-850/60 text-[10px] text-stone-400 dark:text-stone-500 font-mono">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{post.date}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="flex items-center gap-1">
+                            <Eye className="w-3.5 h-3.5 text-stone-450" /> {post.views || 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* VIEW B: FORM TO CREATE ARTICLE */}
+      {isCreating && (
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Main Content (Col 1-8) */}
+          <div className="lg:col-span-8 space-y-5">
+            
+            <div className="space-y-1.5">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Tiêu đề bài viết:</label>
+              <input
+                type="text"
+                placeholder="Ví dụ: Bí quyết xử lý nấm phấn trắng trên hoa hồng leo sạch sinh học"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="w-full bg-stone-100 dark:bg-stone-900 text-stone-850 dark:text-stone-200 border border-stone-250 dark:border-stone-800 focus:border-emerald-500 rounded-2xl py-3 px-4 text-xs font-semibold focus:outline-none"
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Phân nhóm chuyên mục:</label>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { id: "plant-care", label: "Y Học Bệnh Cây", desc: "Cẩm nang trị bệnh" },
+                  { id: "urban-farming", label: "Nông Nghiệp Đô Thị", desc: "Trồng rau căn hộ" },
+                  { id: "eco-living", label: "Lối Sống Xanh", desc: "Phong cách sinh thái" }
+                ].map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategory(cat.id as any)}
+                    className={`p-3.5 rounded-2xl border text-left cursor-pointer transition-all ${
+                      category === cat.id
+                        ? "bg-emerald-950/30 text-emerald-400 border-emerald-500/40 shadow-xs"
+                        : "bg-stone-100 dark:bg-stone-900/40 text-stone-500 border-stone-250 dark:border-stone-800 hover:border-stone-700"
+                    }`}
+                  >
+                    <span className="font-bold text-xs block">{cat.label}</span>
+                    <span className="text-[9px] text-stone-450 dark:text-stone-500 mt-0.5 block">{cat.desc}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Tóm tắt bài viết (Summary):</label>
+              <textarea
+                placeholder="Một đoạn mô tả ngắn 1-2 câu tóm tắt bài viết của bạn xuất hiện ngoài danh sách cẩm nang xanh..."
+                value={summary}
+                onChange={(e) => setSummary(e.target.value)}
+                rows={2}
+                maxLength={500}
+                className="w-full bg-stone-100 dark:bg-stone-900 text-stone-850 dark:text-stone-200 border border-stone-250 dark:border-stone-800 focus:border-emerald-500 rounded-2xl py-3 px-4 text-xs focus:outline-none resize-none leading-relaxed"
+              />
+            </div>
+
+            <div className="space-y-1.5 relative">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Nội dung chi tiết (Rich HTML/Text):</label>
+              
+              {/* Text Formatting Toolbar */}
+              <div className="flex flex-wrap gap-1.5 bg-stone-150 dark:bg-stone-900 border border-b-0 border-stone-250 dark:border-stone-800 p-2 rounded-t-2xl text-[10px] text-stone-450 font-mono font-bold select-none">
+                <button type="button" onClick={() => insertText("<b>", "</b>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">B (Bold)</button>
+                <button type="button" onClick={() => insertText("<i>", "</i>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">I (Italic)</button>
+                <button type="button" onClick={() => insertText("<h1>", "</h1>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">H1</button>
+                <button type="button" onClick={() => insertText("<h2>", "</h2>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">H2</button>
+                <button type="button" onClick={() => insertText("<p>", "</p>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">Paragraph</button>
+                <button type="button" onClick={() => insertText("<ul>\n  <li>", "</li>\n</ul>")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-450 rounded cursor-pointer">Bullet List</button>
+                <button type="button" onClick={() => insertText("<br />")} className="px-2 py-1 bg-stone-200 dark:bg-stone-800 hover:bg-emerald-500/10 hover:text-emerald-455 rounded cursor-pointer">Line Break</button>
+              </div>
+
+              <textarea
+                id="blog-content-textarea"
+                placeholder="Viết nội dung bài viết hướng dẫn chi tiết tại đây. Bạn có thể sử dụng các thẻ HTML cơ bản từ thanh công cụ phía trên..."
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                rows={12}
+                className="w-full bg-stone-100 dark:bg-stone-900 text-stone-850 dark:text-stone-200 border border-t-0 border-stone-250 dark:border-stone-800 focus:border-emerald-500 rounded-b-2xl py-3.5 px-4 text-xs focus:outline-none leading-relaxed font-mono"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Sidebar Settings (Col 9-12) */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Thumbnail Drag & Drop */}
+            <div className="space-y-2">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Ảnh đại diện bài viết (Thumbnail):</label>
+              
+              <div 
+                className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+                  dragActive
+                    ? "border-emerald-500 bg-emerald-950/5"
+                    : image 
+                      ? "border-stone-300 dark:border-stone-700 bg-stone-100 dark:bg-stone-900/30"
+                      : "border-stone-250 dark:border-stone-800 bg-stone-100 dark:bg-stone-900/10 hover:border-emerald-500/50"
+                }`}
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById("blog-thumbnail-input")?.click()}
+              >
+                <input 
+                  id="blog-thumbnail-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+
+                {image ? (
+                  <div className="space-y-3">
+                    <img 
+                      src={image} 
+                      alt="Thumbnail Preview" 
+                      className="w-full h-32 object-cover rounded-xl border border-stone-200 dark:border-stone-800"
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setImage("");
+                      }}
+                      className="px-2.5 py-1 text-[9px] bg-rose-500/15 hover:bg-rose-500/25 text-rose-455 border border-rose-500/20 rounded-md font-mono font-bold uppercase transition-colors"
+                    >
+                      Xóa & Thay Ảnh
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2 flex flex-col items-center py-2">
+                    <UploadCloud className="h-9 w-9 text-stone-450 animate-bounce" style={{ animationDuration: '3s' }} />
+                    <div className="text-xs text-stone-600 dark:text-stone-300">
+                      <span className="font-bold text-emerald-500 hover:text-emerald-400">Tải ảnh lên</span> hoặc kéo thả ảnh tại đây
+                    </div>
+                    <p className="text-[9px] text-stone-500 font-mono">Chấp nhận JPG, PNG dưới 2MB. Ảnh sẽ được chuyển đổi Base64.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tag Products Selector */}
+            <div className="space-y-2">
+              <label className="text-stone-500 dark:text-stone-400 font-mono block font-semibold text-xs">Gắn tag sản phẩm quảng bá:</label>
+              
+              <div className="bg-stone-100 dark:bg-stone-900/40 border border-stone-250 dark:border-stone-800 rounded-2xl p-4 space-y-3 max-h-72 flex flex-col justify-between">
+                
+                {/* Micro search inside tags */}
+                <div className="relative shrink-0">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-stone-450" />
+                  <input
+                    type="text"
+                    placeholder="Lọc sản phẩm của vườn..."
+                    value={tagSearch}
+                    onChange={(e) => setTagSearch(e.target.value)}
+                    className="w-full bg-stone-200 dark:bg-stone-950 text-stone-850 dark:text-stone-200 border border-stone-300 dark:border-stone-850 rounded-lg py-1.5 pl-8 pr-3 text-[10px] focus:outline-none"
+                  />
+                </div>
+
+                <div className="overflow-y-auto space-y-2 pr-1 flex-1 py-1">
+                  {filteredTaggableProducts.length === 0 ? (
+                    <p className="text-[10px] text-stone-500 font-mono text-center py-4">Không có sản phẩm nào phù hợp.</p>
+                  ) : (
+                    filteredTaggableProducts.map((prod) => {
+                      const isChecked = selectedProductIds.includes(prod.id);
+                      return (
+                        <div 
+                          key={prod.id} 
+                          onClick={() => handleToggleProductTag(prod.id)}
+                          className={`flex items-center justify-between p-2 rounded-xl border cursor-pointer select-none transition-all ${
+                            isChecked
+                              ? "bg-emerald-950/20 text-emerald-400 border-emerald-500/35"
+                              : "bg-stone-200/50 dark:bg-stone-950 text-stone-600 dark:text-stone-300 border-stone-250 dark:border-stone-850 hover:bg-stone-200 dark:hover:bg-stone-900"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <img src={prod.image} alt={prod.name} className="w-8 h-8 object-cover rounded" />
+                            <div>
+                              <span className="font-bold text-[10px] block line-clamp-1">{prod.name}</span>
+                              <span className="text-[9px] text-stone-455 dark:text-stone-550 font-mono font-semibold">{prod.price.toLocaleString("vi-VN")}₫</span>
+                            </div>
+                          </div>
+                          
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked}
+                            onChange={() => {}} // Managed by div onClick
+                            className="h-3.5 w-3.5 rounded text-emerald-500 bg-stone-900 border-stone-800 cursor-pointer"
+                          />
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="pt-2.5 border-t border-stone-250 dark:border-stone-800 text-[9px] text-stone-450 dark:text-stone-550 font-mono text-right font-semibold shrink-0 uppercase">
+                  Đã chọn: <strong className="text-emerald-550 font-bold">{selectedProductIds.length}</strong> sản phẩm
+                </div>
+              </div>
+            </div>
+
+            {/* Publishing Box */}
+            <div className="bg-stone-100 dark:bg-stone-900/50 p-4 border border-stone-250 dark:border-stone-850 rounded-2xl space-y-3.5 shrink-0">
+              <span className="text-[9px] text-stone-450 dark:text-stone-500 font-mono block uppercase font-bold">Quy chế đăng chuyên đề xanh:</span>
+              <p className="text-[10px] text-stone-500 leading-normal">
+                Bài viết sau khi duyệt đăng sẽ hiển thị trực tiếp trong mục "Cẩm Nang Xanh" của khách hàng. Chủ vườn phải chịu trách nhiệm về tính xác thực của thông tin.
+              </p>
+              
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-bold uppercase rounded-xl text-xs cursor-pointer transition-all flex items-center justify-center gap-1.5 tracking-wider font-mono shadow-md shadow-emerald-500/10 disabled:opacity-50"
+              >
+                {submitting ? (
+                  <>
+                    <Clock className="animate-spin w-4 h-4" /> Đang Gửi...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" /> Phát Hành Cẩm Nang
+                  </>
+                )}
+              </button>
+            </div>
+
+          </div>
+
+        </form>
       )}
 
     </div>
