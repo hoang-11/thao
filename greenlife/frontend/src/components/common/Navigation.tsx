@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Leaf, ShoppingBag, BrainCircuit, Calendar, Newspaper, User, Settings2, Home, Landmark, UserCheck, Sun, Moon, MapPin, Menu, X, LogOut, Cpu, Store, Users, Sprout, TrendingUp, Inbox } from "lucide-react";
+import { Leaf, ShoppingBag, BrainCircuit, Calendar, Newspaper, User, Settings2, Home, Landmark, UserCheck, Sun, Moon, MapPin, Menu, X, LogOut, Cpu, Store, Users, Sprout, TrendingUp, Inbox, ShieldCheck } from "lucide-react";
 
 import { useAppContext } from "../../context/AppContext";
 
@@ -29,32 +29,38 @@ export const Navigation: React.FC<NavigationProps> = ({
   const isAdmin = currentUser && currentUser.role === "admin";
   const isStoreOwner = currentUser && currentUser.role === "store";
 
-  const navItems = isAdmin
-    ? [
-        { id: "overview", label: "Tổng Quan Sinh Thái", icon: Cpu },
-        { id: "stores", label: "Duyệt Nhà Vườn", icon: Store },
-        { id: "users", label: "Quản Lý Thành Viên", icon: Users },
-        { id: "products", label: "Danh Mục Sản Phẩm", icon: Sprout },
-        { id: "orders", label: "Giao Dịch Đơn Hàng", icon: ShoppingBag },
-        { id: "bookings", label: "Lịch Hẹn Booking", icon: Calendar },
-      ]
-    : isStoreOwner
+  // Check if we should render management dashboard navigation tabs or standard customer ones
+  const showManagementNav = (isAdmin && currentPage === "admin-dashboard") || 
+                            (isStoreOwner && (currentPage === "store-dashboard" || currentPage === "store-profile-setup"));
+
+  const navItems = showManagementNav
+    ? (isAdmin
       ? [
+          { id: "home", label: "🌱 Về Trang Khách", icon: Home },
+          { id: "overview", label: "Tổng Quan Sinh Thái", icon: Cpu },
+          { id: "stores", label: "Duyệt Nhà Vườn", icon: Store },
+          { id: "users", label: "Quản Lý Thành Viên", icon: Users },
+          { id: "products", label: "Danh Mục Sản Phẩm", icon: Sprout },
+          { id: "orders", label: "Giao Dịch Đơn Hàng", icon: ShoppingBag },
+          { id: "bookings", label: "Lịch Hẹn Booking", icon: Calendar },
+        ]
+      : [
+          { id: "home", label: "🌱 Về Trang Khách", icon: Home },
           { id: "overview", label: "Tổng Quan Kinh Doanh", icon: TrendingUp },
           { id: "orders", label: "Quản Lý Đơn Hàng", icon: Inbox },
           { id: "products", label: "Niêm Yết Sản Phẩm", icon: Sprout },
           { id: "settings", label: "Cấu Hình Nhà Vườn", icon: Settings2 },
-        ]
-      : [
-          { id: "home", label: "Trang Chủ", icon: Home },
-          { id: "shop", label: "Cửa Hàng", icon: ShoppingBag },
-          { id: "ai-diagnosis", label: "Bác Sĩ Cây AI", icon: BrainCircuit },
-          { id: "booking", label: "Đặt Lịch Chuyên Gia", icon: Calendar },
-          { id: "blog", label: "Cẩm Nang Xanh", icon: Newspaper },
-        ];
+        ])
+    : [
+        { id: "home", label: "Trang Chủ", icon: Home },
+        { id: "shop", label: "Cửa Hàng", icon: ShoppingBag },
+        { id: "ai-diagnosis", label: "Bác Sĩ Cây AI", icon: BrainCircuit },
+        { id: "booking", label: "Đặt Lịch Chuyên Gia", icon: Calendar },
+        { id: "blog", label: "Cẩm Nang Xanh", icon: Newspaper },
+      ];
 
-  // Dynamically insert specific role dashboard tab if logged in and not admin/store
-  if (currentUser && !isAdmin && !isStoreOwner) {
+  // Dynamically insert specific role dashboard tab if logged in and not currently viewing management panel
+  if (currentUser && !showManagementNav) {
     navItems.push({ id: "customer-dashboard", label: "Hồ Sơ Của Tôi 👤", icon: UserCheck });
   }
 
@@ -135,6 +141,38 @@ export const Navigation: React.FC<NavigationProps> = ({
                   Vườn: <strong className="text-emerald-400 font-semibold">{matchedStore.name.replace("Nhà Vườn ", "").replace("Cửa Hàng ", "")}</strong>
                 </span>
               </div>
+            )}
+
+            {/* Quick Switch to Dashboard for Admin / Store Owners when browsing as customer */}
+            {currentUser && !showManagementNav && (isAdmin || isStoreOwner) && (
+              <button
+                onClick={() => {
+                  if (isAdmin) {
+                    setCurrentPage("admin-dashboard");
+                    setAdminActiveTab("overview");
+                  } else {
+                    setCurrentPage("store-dashboard");
+                    setStoreActiveTab("overview");
+                  }
+                }}
+                className={`flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all duration-300 cursor-pointer btn-animated shadow-md hover:scale-105 ${
+                  isAdmin 
+                    ? "bg-amber-955/50 border-amber-500/40 text-amber-400 hover:bg-amber-900/50 hover:border-amber-400 shadow-amber-950/40" 
+                    : "bg-emerald-955/50 border-emerald-500/40 text-emerald-400 hover:bg-emerald-900/50 hover:border-emerald-400 shadow-emerald-950/40"
+                }`}
+              >
+                {isAdmin ? (
+                  <>
+                    <ShieldCheck className="h-4 w-4 text-amber-400 animate-pulse" />
+                    <span>Kênh Quản Trị 🛡️</span>
+                  </>
+                ) : (
+                  <>
+                    <Store className="h-4 w-4 text-emerald-400 animate-pulse" />
+                    <span>Kênh Nhà Vườn 🏡</span>
+                  </>
+                )}
+              </button>
             )}
 
             {/* Theme Toggle Button */}
@@ -296,6 +334,39 @@ export const Navigation: React.FC<NavigationProps> = ({
                 );
               })}
             </nav>
+
+            {/* Quick Switch to Dashboard for Admin / Store Owners on mobile when browsing as customer */}
+            {currentUser && !showManagementNav && (isAdmin || isStoreOwner) && (
+              <button
+                onClick={() => {
+                  if (isAdmin) {
+                    setCurrentPage("admin-dashboard");
+                    setAdminActiveTab("overview");
+                  } else {
+                    setCurrentPage("store-dashboard");
+                    setStoreActiveTab("overview");
+                  }
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                  isAdmin 
+                    ? "bg-amber-950/60 border-amber-500/30 text-amber-400" 
+                    : "bg-emerald-950/60 border-emerald-500/30 text-emerald-400"
+                }`}
+              >
+                {isAdmin ? (
+                  <>
+                    <ShieldCheck className="h-4.5 w-4.5" />
+                    <span>VÀO KÊNH QUẢN TRỊ 🛡️</span>
+                  </>
+                ) : (
+                  <>
+                    <Store className="h-4.5 w-4.5" />
+                    <span>VÀO KÊNH NHÀ VƯỜN 🏡</span>
+                  </>
+                )}
+              </button>
+            )}
 
             {/* Store Indicator in Mobile */}
             {matchedStore && (

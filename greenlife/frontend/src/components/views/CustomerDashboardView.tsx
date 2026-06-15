@@ -17,6 +17,20 @@ export const CustomerDashboardView: React.FC<CustomerDashboardViewProps> = ({
 }) => {
   const { currentUser, userLocation, stores } = useAppContext();
 
+  const userRole = currentUser?.role || "customer";
+
+  const getRoleBadge = (role: string) => {
+    if (role === "admin") return "⭐ BAN QUẢN TRỊ (ADMIN)";
+    if (role === "store") return "⭐ CHỦ CỬA HÀNG (STORE)";
+    return "⭐ TÀI KHOẢN KHÁCH HÀNG";
+  };
+
+  const getRoleLabel = (role: string) => {
+    if (role === "admin") return "Quản trị viên";
+    if (role === "store") return "Chủ nhà vườn";
+    return "Khách hàng";
+  };
+
   // Mock Customer Orders for Nguyễn Hoàng Long
   const myOrders = [
     { id: "GL-8391", date: "2026-05-22", total: 250000, status: "shipped", itemsCount: 2, items: "Cây sen đá ngọc, Phân trùn quế organic" },
@@ -61,8 +75,14 @@ export const CustomerDashboardView: React.FC<CustomerDashboardViewProps> = ({
             <User className="h-8 w-8" />
           </div>
           <div>
-            <div className="inline-flex gap-1.5 items-center px-2.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-[10px] font-mono font-medium">
-              ⭐ TÀI KHOẢN KHÁCH HÀNG
+            <div className={`inline-flex gap-1.5 items-center px-2.5 py-0.5 rounded-md text-[10px] font-mono font-medium ${
+              userRole === "admin" 
+                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" 
+                : userRole === "store" 
+                  ? "bg-teal-500/10 text-teal-700 dark:text-teal-400" 
+                  : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            }`}>
+              {getRoleBadge(userRole)}
             </div>
             <h2 className="text-xl sm:text-2xl font-display font-bold text-stone-900 dark:text-stone-100 tracking-tight mt-1.5">
               {currentUser?.name || "Nguyễn Hoàng Long"}
@@ -110,7 +130,7 @@ export const CustomerDashboardView: React.FC<CustomerDashboardViewProps> = ({
               <div className="flex justify-between items-center py-1">
                 <span className="text-stone-400 font-mono">Vai trò:</span>
                 <span className="px-2 py-0.5 rounded bg-stone-200 dark:bg-stone-850 text-stone-700 dark:text-stone-300 font-semibold uppercase text-[10px]">
-                  Khách hàng
+                  {getRoleLabel(userRole)}
                 </span>
               </div>
               <div className="flex flex-col gap-1 py-1">
