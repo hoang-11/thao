@@ -290,20 +290,22 @@ export const Chatbot: React.FC = () => {
           </div>
 
           {/* Quick Questions Pills */}
-          <div className="px-4 py-2 border-t border-stone-850 bg-stone-950/80 max-h-28 overflow-y-auto space-y-1.5">
-            <span className="text-[8px] text-stone-500 font-mono block uppercase tracking-wider">Gợi ý câu hỏi:</span>
-            <div className="flex flex-wrap gap-1.5 pb-1">
-              {QUICK_QUESTIONS.map((question) => (
-                <button
-                  key={question}
-                  onClick={() => handleSendMessage(question)}
-                  className="px-2.5 py-1 text-[9px] bg-stone-900 border border-stone-800 text-stone-300 hover:text-emerald-400 hover:border-emerald-500/30 rounded-lg text-left transition-all cursor-pointer font-medium"
-                >
-                  {question}
-                </button>
-              ))}
+          {!messages.some((msg) => msg.sender === "user") && (
+            <div className="px-4 py-2 border-t border-stone-850 bg-stone-950/80 max-h-28 overflow-y-auto space-y-1.5">
+              <span className="text-[8px] text-stone-500 font-mono block uppercase tracking-wider">Gợi ý câu hỏi:</span>
+              <div className="flex flex-wrap gap-1.5 pb-1">
+                {QUICK_QUESTIONS.map((question) => (
+                  <button
+                    key={question}
+                    onClick={() => handleSendMessage(question)}
+                    className="px-2.5 py-1 text-[9px] bg-stone-900 border border-stone-800 text-stone-300 hover:text-emerald-400 hover:border-emerald-500/30 rounded-lg text-left transition-all cursor-pointer font-medium"
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Chat text Input box */}
           <form
