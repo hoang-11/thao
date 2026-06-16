@@ -81,7 +81,7 @@ router.post("/ai-diagnosis", async (req, res) => {
     try {
       const client = getGeminiClient();
       const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, "");
-      
+
       const prompt = `Bạn là Chuyên gia Bác sĩ Cây trồng cao cấp của GreenLife Việt Nam.
 Hãy phân tích bức ảnh này để chẩn đoán tình trạng sức khỏe sinh học của cây.
 
@@ -178,7 +178,7 @@ Hãy đưa vào mảng recommendedProductIds từ 1 đến 3 ID phù hợp nhấ
 
     } catch (gemError: any) {
       console.warn("Gemini API Error or Key missing. Falling back to high-grade intelligent simulator:", gemError.message);
-      
+
       // Intelligent mock fallback for seamless user testing
       const simMatch = {
         plantName: "Cây xanh đô thị (Chẩn đoán mô phỏng cao cấp)",
@@ -238,7 +238,7 @@ QUY TẮC PHẠM VI AN TOÀN (BẮT BUỘC):
           temperature: 0.7,
         }
       });
-      
+
       responseText = response.text || "";
     } catch (gemError: any) {
       console.warn("Lỗi Gemini API trong API Chat. Đang chuyển sang giả lập:", gemError.message);
